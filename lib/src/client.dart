@@ -15,7 +15,6 @@ import 'subscription.dart';
 enum _ReceiveState {
   idle, //op=msg -> msg
   msg, //newline -> idle
-
 }
 
 ///status of the nats client
@@ -753,12 +752,10 @@ class Client {
   ///   timeout = true;
   /// }
   /// ```
-  Future<Message<T>> request<T>(
-    String subj,
-    Uint8List data, {
-    Duration timeout = const Duration(seconds: 2),
-    T Function(String)? jsonDecoder,
-  }) async {
+  Future<Message<T>> request<T>(String subj, Uint8List data,
+      {Duration timeout = const Duration(seconds: 2),
+      T Function(String)? jsonDecoder,
+      Header? reqHeaders}) async {
     if (!connected) {
       throw NatsException("request error: client not connected");
     }
@@ -781,7 +778,7 @@ class Client {
     var inbox = _inboxSubPrefix! + '.' + Nuid().next();
     var stream = _inboxSub!.stream;
 
-    pub(subj, data, replyTo: inbox);
+    pub(subj, data, replyTo: inbox, header: reqHeaders);
 
     try {
       do {
@@ -793,7 +790,7 @@ class Client {
       _mutex.release();
     }
     var msg = Message<T>(resp.subject, resp.sid, resp.byte, this,
-        jsonDecoder: jsonDecoder);
+        header: resp.header, jsonDecoder: jsonDecoder);
     return msg;
   }
 
