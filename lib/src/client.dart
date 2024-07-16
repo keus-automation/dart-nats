@@ -662,6 +662,19 @@ class Client {
     }
   }
 
+  ///unsubscribing to events
+  bool unsubscribeFromEvent(String subject) {
+    try {
+      if (_subs[subject] != null) {
+        unSubById(_subs[subject]?.sid ?? -1);
+        return true;
+      }
+      return false;
+    } catch (e) {
+      return false;
+    }
+  }
+
   ///unsubscribe
   bool unSub(Subscription s) {
     var sid = s.sid;
