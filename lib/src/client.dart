@@ -130,7 +130,7 @@ class Client {
   final _backendSubs = <int, bool>{};
   final _pubBuffer = <_Pub>[];
 
-  int _ssid = 0;
+  //int _ssid = 0;
 
   List<int> _buffer = [];
   _ReceiveState _receiveState = _ReceiveState.idle;
@@ -637,19 +637,21 @@ class Client {
     String? queueGroup,
     T Function(String)? jsonDecoder,
   }) {
-    _ssid++;
+    // _ssid++;
+
+    int ssid = _subs.keys.length;
 
     //get registered json decoder
     if (T != dynamic && jsonDecoder == null) {
       jsonDecoder = _getJsonDecoder();
     }
 
-    var s = Subscription<T>(_ssid, subject, this,
+    var s = Subscription<T>(ssid, subject, this,
         queueGroup: queueGroup, jsonDecoder: jsonDecoder);
-    _subs[_ssid] = s;
+    _subs[ssid] = s;
     if (status == Status.connected) {
-      _sub(subject, _ssid, queueGroup: queueGroup);
-      _backendSubs[_ssid] = true;
+      _sub(subject, ssid, queueGroup: queueGroup);
+      _backendSubs[ssid] = true;
     }
     return s;
   }
@@ -659,6 +661,22 @@ class Client {
       _add('sub $subject $sid');
     } else {
       _add('sub $subject $queueGroup $sid');
+    }
+  }
+
+  ///unsubscribe to subject
+  bool unsubscribeFromEvent(String subject) {
+    try {
+      bool unsubscribed = false;
+      _subs.forEach((sid, s) async {
+        if (subject == s.subject) {
+          unsubscribed = unSub(s);
+        }
+      });
+
+      return unsubscribed;
+    } catch (e) {
+      return false;
     }
   }
 
