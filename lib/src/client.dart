@@ -271,6 +271,7 @@ class Client {
     }
     if (!_connectCompleter.isCompleted) {
       _clientStatus = _ClientStatus.closed;
+      _setStatus(Status.disconnected);
       _connectCompleter
           .completeError(NatsException('can not connect ${uri.toString()}'));
     }
