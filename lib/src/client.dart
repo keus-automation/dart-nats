@@ -683,14 +683,18 @@ class Client {
 
   ///unsubscribe
   bool unSub(Subscription s) {
-    var sid = s.sid;
+    try {
+      var sid = s.sid;
 
-    if (_subs[sid] == null) return false;
-    _unSub(sid);
-    _subs.remove(sid);
-    s.close();
-    _backendSubs.remove(sid);
-    return true;
+      if (_subs[sid] == null) return false;
+      _unSub(sid);
+      _subs.remove(sid);
+      s.close();
+      _backendSubs.remove(sid);
+      return true;
+    } catch (e) {
+      return false;
+    }
   }
 
   ///unsubscribe by id
@@ -848,8 +852,10 @@ class Client {
     _wsChannel = null;
     await _secureSocket?.close();
     _secureSocket = null;
-    await _tcpSocket?.close();
-    _tcpSocket = null;
+    try {
+      await _tcpSocket?.close();
+      _tcpSocket = null;
+    } on Exception catch (_) {}
 
     _buffer = [];
     _clientStatus = _ClientStatus.closed;
