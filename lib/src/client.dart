@@ -494,7 +494,9 @@ class Client {
         }
         break;
       case 'pong':
-        _pingCompleter.complete();
+        if (!_pingCompleter.isCompleted) {
+          _pingCompleter.complete();
+        }
         break;
       case '+ok':
         //do nothing
