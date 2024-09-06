@@ -567,6 +567,10 @@ class Client {
   ///ping server current not implement pong verification
   Future<bool> ping() async {
     try {
+      if (_status != Status.connected) {
+        return false;
+      }
+
       _pingCompleter = Completer();
       _add('ping');
       await _pingCompleter.future.timeout(Duration(seconds: 2));
@@ -581,6 +585,10 @@ class Client {
   Future<void> _healthCheck() async {
     // print("calling healthcheck");
     bool pingStatus = await ping();
+
+    if (_status != Status.connected) {
+      return;
+    }
 
     if (pingStatus) {
       pingFailures = 0;
@@ -896,7 +904,7 @@ class Client {
     if (_status == Status.connected) {
       // print("Starting healthcheck");
       _healthCheck();
-    }
+    } else if (_status == Status.disconnected) {}
   }
 
   /// close connection and cancel all future retries
