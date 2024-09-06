@@ -68,6 +68,11 @@ class Client {
   bool _tlsRequired = false;
   bool _retry = false;
 
+  // New parameters for health checks
+  int pingInterval = 6000; // 10 seconds
+  int maxPingFailures = 3;
+  int pingFailures = 0;
+
   Info _info = Info();
   late Completer _pingCompleter;
   late Completer _connectCompleter;
@@ -185,16 +190,19 @@ class Client {
   }
 
   /// Connect to NATS server
-  Future connect(
-    Uri uri, {
-    ConnectOption? connectOption,
-    int timeout = 5,
-    bool retry = true,
-    int retryInterval = 10,
-    int retryCount = 3,
-  }) async {
+  Future connect(Uri uri,
+      {ConnectOption? connectOption,
+      int timeout = 5,
+      bool retry = true,
+      int retryInterval = 10,
+      int retryCount = 3,
+      int pingInterval = 6000,
+      int maxPingFailures = 3}) async {
     this._retry = retry;
+    this.pingInterval = pingInterval;
+    this.maxPingFailures = maxPingFailures;
     _connectCompleter = Completer();
+
     if (_clientStatus == _ClientStatus.used) {
       throw Exception(
           NatsException('client in use. must close before call connect'));
@@ -225,13 +233,21 @@ class Client {
       }
       await for (var s in statusStream) {
         if (s == Status.disconnected) {
+          // print("called disconnected");
           break;
         }
         if (s == Status.closed) {
+          // print("closed is being called");
           return;
+        }
+        if (s == Status.connected) {
+          // print("calling status connected");
+          _healthCheck();
         }
       }
     } while (this._retry && retryCount == -1);
+
+    // print("this is connection completed and breaking");
     return _connectCompleter.future;
   }
 
@@ -309,6 +325,11 @@ class Client {
           if (port == 0) {
             port = 4222;
           }
+
+          if (_tcpSocket != null) {
+            _tcpSocket?.destroy();
+          }
+
           _tcpSocket = await Socket.connect(
             uri.host,
             port,
@@ -318,14 +339,21 @@ class Client {
             return false;
           }
           _setStatus(Status.infoHandshake);
-          _tcpSocket!.listen((event) {
-            if (_secureSocket == null) {
-              if (_channelStream.isClosed) return;
-              _channelStream.add(event);
-            }
-          }).onDone(() {
-            _setStatus(Status.disconnected);
-          });
+          _tcpSocket!.listen(
+              (event) {
+                // print("TCP Event $event");
+                if (_secureSocket == null) {
+                  if (_channelStream.isClosed) return;
+                  _channelStream.add(event);
+                }
+              },
+              cancelOnError: true,
+              onError: (err) {
+                // print("on tcp socket Error $err");
+              },
+              onDone: () {
+                // print("on tcp socket Done");
+              });
           return true;
         case 'tls':
           _tlsRequired = true;
@@ -348,6 +376,7 @@ class Client {
           throw Exception(NatsException('schema ${uri.scheme} not support'));
       }
     } catch (e) {
+      // print("Connect Uri Method Error $e");
       return false;
     }
     return false;
@@ -538,10 +567,37 @@ class Client {
   int? maxPayload() => _info.maxPayload;
 
   ///ping server current not implement pong verification
-  Future ping() {
-    _pingCompleter = Completer();
-    _add('ping');
-    return _pingCompleter.future;
+  Future<bool> ping() async {
+    try {
+      _pingCompleter = Completer();
+      _add('ping');
+      await _pingCompleter.future.timeout(Duration(seconds: 2));
+      // print("Ping successful");
+      return true;
+    } catch (e) {
+      // print("Ping failed");
+      return false;
+    }
+  }
+
+  Future<void> _healthCheck() async {
+    // print("calling healthcheck");
+    bool pingStatus = await ping();
+
+    if (pingStatus) {
+      pingFailures = 0;
+    } else {
+      pingFailures += 1;
+
+      if (pingFailures > maxPingFailures) {
+        _setStatus(Status.disconnected);
+        return;
+      }
+    }
+
+    // print("Calling healthcheck again");
+    await Future.delayed(Duration(milliseconds: pingInterval));
+    _healthCheck();
   }
 
   void _addConnectOption(ConnectOption c) {
@@ -833,6 +889,9 @@ class Client {
   }
 
   void _setStatus(Status newStatus) {
+    if (_status == newStatus) {
+      return;
+    }
     _status = newStatus;
     _statusController.add(newStatus);
   }
