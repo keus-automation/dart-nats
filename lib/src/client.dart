@@ -240,10 +240,6 @@ class Client {
           // print("closed is being called");
           return;
         }
-        if (s == Status.connected) {
-          // print("calling status connected");
-          _healthCheck();
-        }
       }
     } while (this._retry && retryCount == -1);
 
@@ -896,6 +892,11 @@ class Client {
     }
     _status = newStatus;
     _statusController.add(newStatus);
+
+    if (_status == Status.connected) {
+      // print("Starting healthcheck");
+      _healthCheck();
+    }
   }
 
   /// close connection and cancel all future retries
