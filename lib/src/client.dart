@@ -346,9 +346,13 @@ class Client {
               cancelOnError: true,
               onError: (err) {
                 // print("on tcp socket Error $err");
+                if (err.toString().indexOf("Write failed") >= 0) {
+                  _setStatus(Status.disconnected);
+                }
               },
               onDone: () {
                 // print("on tcp socket Done");
+                _setStatus(Status.disconnected);
               });
           return true;
         case 'tls':
@@ -565,7 +569,7 @@ class Client {
   int? maxPayload() => _info.maxPayload;
 
   ///ping server current not implement pong verification
-  Future<bool> ping() async {
+  Future<bool> ping({int timeout = 2}) async {
     try {
       if (_status != Status.connected) {
         return false;
@@ -573,7 +577,7 @@ class Client {
 
       _pingCompleter = Completer();
       _add('ping');
-      await _pingCompleter.future.timeout(Duration(seconds: 2));
+      await _pingCompleter.future.timeout(Duration(seconds: timeout));
       // print("Ping successful");
       return true;
     } catch (e) {
@@ -784,7 +788,12 @@ class Client {
       _secureSocket!.add(utf8.encode(str + '\r\n'));
       return;
     } else if (_tcpSocket != null) {
-      _tcpSocket!.add(utf8.encode(str + '\r\n'));
+      try {
+        _tcpSocket!.add(utf8.encode(str + '\r\n'));
+      } catch (err) {
+        // print("Error in socket write $err");
+      }
+
       return;
     }
     throw Exception(NatsException('no connection'));
