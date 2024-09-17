@@ -881,6 +881,8 @@ class Client {
       } while (resp.subject != inbox);
     } on TimeoutException {
       throw TimeoutException('request time > $timeout');
+    } catch (e) {
+      throw NatsException(e.toString());
     } finally {
       // print("this is final call");
       // _mutex.release();
