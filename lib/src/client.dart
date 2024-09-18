@@ -705,6 +705,24 @@ class Client {
     T Function(String)? jsonDecoder,
   }) {
     // _ssid++;
+    Subscription<T>? sub;
+
+    for (Subscription entry in _subs.values.toList()) {
+      if (entry.subject == subject) {
+        sub = entry as Subscription<T>;
+        break; // Stop the iteration once the value is found
+      }
+    }
+
+    // _subs.forEach((sid, s) async {
+    //   if (subject == s.subject) {
+    //     sub = s;
+    //     break;
+    //   }
+    // });
+    if (sub != null) {
+      return sub;
+    }
 
     int ssid = _subs.keys.length;
 
